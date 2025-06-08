@@ -44,6 +44,8 @@
         canvas {
             display: block;
             background-color: var(--frame-color);
+            /* This shadow adds a nice "physical screen" effect */
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
         }
 
         /* --- MOBILE-FIRST UI --- */
@@ -176,7 +178,7 @@
 </head>
 <body>
     <div class="game-container">
-        <!-- In-Game HUD -->
+        <!-- In-Game HUD (now outside canvas) -->
         <div class="game-hud">
             <div class="hud-score">SCORE:000000</div>
             <div class="hud-chain">CHAIN:x1</div>
@@ -184,7 +186,7 @@
 
         <canvas id="gameCanvas"></canvas>
         
-        <!-- NEW: Start Screen Overlay -->
+        <!-- Start Screen Overlay -->
         <div id="startOverlay" class="overlay">
             <h1>SYMFORM-M</h1>
             <p>Touch and drag anywhere to move. <br>Your finger won't block the view.</p>
@@ -273,32 +275,23 @@
             ctx.imageSmoothingEnabled = false;
             resizeCanvas();
             window.addEventListener('resize', resizeCanvas);
-            
-            // --- NEW: Touch Event Listeners ---
             canvas.addEventListener('touchstart', handleTouchStart, { passive: false });
             canvas.addEventListener('touchmove', handleTouchMove, { passive: false });
-            
-            // Start screen and restart button listeners
             document.body.addEventListener('click', handleInitialStart, { once: true });
             restartButton.addEventListener('click', startGame);
-
             loadHighScores();
-            // Show start screen instead of starting game immediately
             showStartScreen();
         }
 
         function handleInitialStart(event) {
-            // This ensures only a click on the start screen/body actually starts it
-            if (!isGameStarted && !isGameOver) {
-                 startGame();
-            }
+            if (!isGameStarted && !isGameOver) { startGame(); }
         }
-
-        // --- NEW: Touch Handlers for Relative Drag ---
+        
         function handleTouchStart(event) {
             event.preventDefault();
             if (isGameOver || !isGameStarted) return;
             const touch = event.touches[0];
+            const rect = canvas.getBoundingClientRect();
             touchStartX = touch.clientX;
             touchStartY = touch.clientY;
             formStartDragX = lightform.x;
@@ -311,23 +304,21 @@
             const touch = event.touches[0];
             const deltaX = touch.clientX - touchStartX;
             const deltaY = touch.clientY - touchStartY;
-            
             const newX = formStartDragX + deltaX;
             const newY = formStartDragY + deltaY;
-
             lightform.x = Math.max(GAME_CONFIG.FORM_RADIUS, Math.min(canvas.width - GAME_CONFIG.FORM_RADIUS, newX));
             lightform.y = Math.max(GAME_CONFIG.FORM_RADIUS, Math.min(canvas.height - GAME_CONFIG.FORM_RADIUS, newY));
             updateDarkformPosition();
         }
 
-        // --- Game States ---
         function showStartScreen() {
             startOverlay.classList.remove('hidden');
             gameOverlay.classList.add('hidden');
-            resizeCanvas(); // Ensure canvas is sized correctly
-            lightform.x = canvas.width / 2; lightform.y = canvas.height / 2;
+            resizeCanvas(); 
+            lightform.x = canvas.width / 2;
+            lightform.y = canvas.height / 2;
             updateDarkformPosition();
-            draw(); // Draw initial state
+            draw(); 
         }
 
         function startGame() {
@@ -336,9 +327,8 @@
             gameOverlay.classList.add('hidden');
             sessionHighMessage.classList.add('hidden');
             allTimeHighMessage.classList.add('hidden');
-            
             isGameOver = false;
-            isGameStarted = true; // IMPORTANT
+            isGameStarted = true;
             score = 0; chainMultiplier = 1; highestChainInGame = 0; nodesAbsorbedCount = 0;
             nodes.length = 0; barriers.length = 0; barriersEnabled = false;
             lastNodeSpawnTime = performance.now();
@@ -346,25 +336,20 @@
             startTime = performance.now();
             gameDuration = 0;
             clearTimeout(chainResetTimer);
-
             lightform.x = canvas.width / 2;
             lightform.y = canvas.height / 2;
             updateDarkformPosition();
-
             gameLoop(performance.now());
         }
 
-        // --- Game Loop (Now checks isGameStarted) ---
         function gameLoop(currentTime) {
             if (isGameOver) { showGameOverScreen(); return; }
-            if (!isGameStarted) return; // Don't run logic if game hasn't started
-            
+            if (!isGameStarted) return;
             update(currentTime);
             draw();
             animationFrameId = requestAnimationFrame(gameLoop);
         }
 
-        // --- Update and Draw (with HUD update) ---
         function update(currentTime) {
             gameDuration = Math.floor((currentTime - startTime) / 1000);
             if (currentTime - lastNodeSpawnTime > currentSpawnInterval) { spawnNode(); lastNodeSpawnTime = currentTime; currentSpawnInterval = Math.max(GAME_CONFIG.MIN_NODE_SPAWN_INTERVAL_MS, currentSpawnInterval - GAME_CONFIG.NODE_SPAWN_INTERVAL_DECREMENT_PER_SCORE); }
@@ -379,8 +364,6 @@
             for (const b of barriers) { ctx.beginPath(); ctx.moveTo(b.x1, b.y1); ctx.lineTo(b.x2, b.y2); ctx.stroke(); }
             for (const n of nodes) { ctx.beginPath(); ctx.arc(n.x, n.y, n.radius, 0, 2 * Math.PI); ctx.fillStyle = n.fillColor; ctx.fill(); ctx.strokeStyle = n.strokeColor; ctx.lineWidth = n.strokeWidth; ctx.stroke(); }
             drawForm(darkform); drawForm(lightform);
-            
-            // Update HUD
             if (isGameStarted && !isGameOver) {
                 hudScore.textContent = `SCORE:${String(score).padStart(6, '0')}`;
                 hudChain.textContent = `CHAIN:x${chainMultiplier}`;
@@ -391,9 +374,37 @@
             ctx.beginPath(); ctx.arc(form.x, form.y, form.radius, 0, 2*Math.PI); ctx.fillStyle = form.color; ctx.fill();
         }
 
-        // --- Logic (Largely unchanged) ---
+        // --- MODIFIED FUNCTION ---
+        function resizeCanvas() {
+            const container = document.querySelector('.game-container');
+            const screenWidth = container.clientWidth;
+            const screenHeight = container.clientHeight;
+            const targetAspectRatio = 9 / 18; // Or 0.5
+
+            let newWidth, newHeight;
+
+            // Check if the screen is wider or taller than the target aspect ratio
+            if (screenWidth / screenHeight > targetAspectRatio) {
+                // Screen is wider than target (e.g., landscape, wide phone): Constrain by height
+                newHeight = screenHeight;
+                newWidth = newHeight * targetAspectRatio;
+            } else {
+                // Screen is taller than or equal to target (e.g., standard portrait): Constrain by width
+                newWidth = screenWidth;
+                newHeight = newWidth / targetAspectRatio;
+            }
+
+            canvas.width = Math.round(newWidth);
+            canvas.height = Math.round(newHeight);
+            
+            // Re-center forms and redraw immediately after a resize
+            if (!isGameOver) {
+                updateDarkformPosition();
+                draw();
+            }
+        }
+        
         function updateDarkformPosition() { const cX = canvas.width / 2; const cY = canvas.height / 2; let mX = cX + (cX - lightform.x); let mY = cY + (cY - lightform.y); darkform.x = Math.max(GAME_CONFIG.FORM_RADIUS, Math.min(canvas.width - GAME_CONFIG.FORM_RADIUS, mX)); darkform.y = Math.max(GAME_CONFIG.FORM_RADIUS, Math.min(canvas.height - GAME_CONFIG.FORM_RADIUS, mY)); }
-        function resizeCanvas() { const cont = document.querySelector('.game-container'); canvas.width = cont.clientWidth; canvas.height = cont.clientHeight; if (!isGameOver) { updateDarkformPosition(); draw(); } }
         function spawnNode() { const type = Math.random() < 0.5 ? 'light' : 'dark'; let fillColor = type === 'light' ? lightform.color : darkform.color; let strokeColor = type === 'light' ? '#0D1B2A' : lightform.color; let x, y; do { x = Math.random() * (canvas.width - 2*GAME_CONFIG.NODE_RADIUS) + GAME_CONFIG.NODE_RADIUS; y = Math.random() * (canvas.height - 2*GAME_CONFIG.NODE_RADIUS) + GAME_CONFIG.NODE_RADIUS; } while (isPositionInsideBarrier(x, y, GAME_CONFIG.NODE_RADIUS) || isPositionInsideBarrier(canvas.width - x, canvas.height - y, GAME_CONFIG.NODE_RADIUS)); nodes.push({ x, y, radius: GAME_CONFIG.NODE_RADIUS, type, fillColor, strokeColor, strokeWidth: 2 }); }
         function spawnBarriers(count) { for (let i=0; i<count; ++i) { let x1,y1,x2,y2; const minL=100; const maxL=Math.min(canvas.width,canvas.height)*0.7; const p=GAME_CONFIG.FORM_RADIUS*2+10; if(Math.random()<0.5){y1=y2=Math.random()*(canvas.height-2*p)+p;x1=Math.random()*(canvas.width-minL-2*p)+p;x2=x1+Math.random()*(maxL-minL)+minL;}else{x1=x2=Math.random()*(canvas.width-2*p)+p;y1=Math.random()*(canvas.height-minL-2*p)+p;y2=y1+Math.random()*(maxL-minL)+minL;} barriers.push({x1,y1,x2,y2}); } }
         isPositionInsideBarrier = function(px, py, r) { const t = r + GAME_CONFIG.BARRIER_COLLISION_TOLERANCE; for(const b of barriers) { if (distToSegmentSquared(px,py,b.x1,b.y1,b.x2,b.y2) < t*t) return true; } return false; };
@@ -403,7 +414,6 @@
         function loadHighScores() { try { const s = localStorage.getItem(LOCAL_STORAGE_KEY_ALL_TIME_HIGH); if(s) allTimeHighScore = parseInt(s, 10); } catch(e) { console.error(e); allTimeHighScore = 0;} sessionHighScore = 0; }
         function saveAllTimeHighScore() { try { localStorage.setItem(LOCAL_STORAGE_KEY_ALL_TIME_HIGH, allTimeHighScore.toString()); } catch(e) { console.error(e); } }
         
-        // --- Start ---
         window.onload = init;
     </script>
 </body>
