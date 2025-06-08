@@ -44,13 +44,11 @@
         canvas {
             display: block;
             background-color: var(--frame-color);
-            /* This shadow adds a nice "physical screen" effect */
             box-shadow: 0 0 20px rgba(0,0,0,0.5);
         }
 
         /* --- MOBILE-FIRST UI --- */
 
-        /* HUD for Score and Chain */
         .game-hud {
             position: absolute;
             top: 0;
@@ -64,14 +62,10 @@
             box-sizing: border-box;
             z-index: 10;
             font-size: 14px;
-            pointer-events: none; /* Allows touch to pass through to canvas */
+            pointer-events: none;
         }
         
-        .hud-score, .hud-chain {
-            text-shadow: 2px 2px 0px var(--shadow-color);
-        }
-
-        /* Base Overlay Style */
+        .hud-score, .hud-chain { text-shadow: 2px 2px 0px var(--shadow-color); }
         .overlay {
             position: absolute;
             width: 90%;
@@ -87,7 +81,6 @@
             z-index: 20;
         }
         
-        /* Start Screen Specifics */
         #startOverlay h1 {
             font-size: 3em;
             color: var(--text-color);
@@ -107,8 +100,6 @@
         }
         @keyframes blink { 50% { opacity: 0; } }
         
-
-        /* Game Over Screen Specifics */
         #gameOverlay h1 {
             font-size: 2.5em;
             color: var(--highlight-color);
@@ -117,17 +108,13 @@
             margin-bottom: 2rem;
         }
 
-        .score-group, .stats-group {
-            width: 100%; margin-bottom: 1.5rem;
-        }
+        .score-group, .stats-group { width: 100%; margin-bottom: 1.5rem; }
         .score-group p, .stats-group p {
             margin: 0.75rem 0; font-size: 1em; display: flex;
             justify-content: space-between; width: 100%; max-width: 320px;
             margin-left: auto; margin-right: auto;
         }
-        .score-group strong, .stats-group strong {
-            color: var(--highlight-color); font-weight: normal;
-        }
+        .score-group strong, .stats-group strong { color: var(--highlight-color); font-weight: normal; }
         .divider {
             border: none; height: 2px; background-color: var(--border-color);
             width: 100%; margin: 0.5rem 0 1.5rem 0;
@@ -142,7 +129,6 @@
             100% { opacity: 1; transform: scale(1.05); }
         }
 
-        /* Large, touch-friendly restart button */
         .restart-button-mobile {
             margin-top: 1rem;
             padding: 1rem;
@@ -156,14 +142,8 @@
             cursor: pointer;
             transition: all 0.1s ease-out;
         }
-        .restart-button-mobile:active {
-            transform: translate(4px, 4px);
-            box-shadow: none;
-        }
-
-        .hidden {
-            display: none !important;
-        }
+        .restart-button-mobile:active { transform: translate(4px, 4px); box-shadow: none; }
+        .hidden { display: none !important; }
 
         @media (max-width: 600px) {
             #startOverlay h1 { font-size: 2em; }
@@ -178,7 +158,6 @@
 </head>
 <body>
     <div class="game-container">
-        <!-- In-Game HUD (now outside canvas) -->
         <div class="game-hud">
             <div class="hud-score">SCORE:000000</div>
             <div class="hud-chain">CHAIN:x1</div>
@@ -186,14 +165,12 @@
 
         <canvas id="gameCanvas"></canvas>
         
-        <!-- Start Screen Overlay -->
         <div id="startOverlay" class="overlay">
             <h1>SYMFORM-M</h1>
             <p>Touch and drag anywhere to move. <br>Your finger won't block the view.</p>
             <p class="start-instruction">TAP TO BEGIN</p>
         </div>
 
-        <!-- Game Over screen -->
         <div id="gameOverlay" class="overlay hidden">
             <h1>GAME OVER</h1>
             <div class="score-group">
@@ -218,12 +195,10 @@
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
 
-        // --- MOBILE-FIRST State Variables ---
-        let isGameStarted = false; // Controls if the game loop runs
+        let isGameStarted = false;
         let touchStartX, touchStartY;
         let formStartDragX, formStartDragY;
 
-        // --- Game State Variables ---
         let animationFrameId;
         let isGameOver = false;
         let score = 0;
@@ -233,23 +208,32 @@
         let startTime = 0;
         let gameDuration = 0;
 
-        // High Score
         const LOCAL_STORAGE_KEY_ALL_TIME_HIGH = 'symformAllTimeHigh';
         let allTimeHighScore = 0;
         let sessionHighScore = 0;
 
-        // --- Game Config (Unchanged) ---
-        const GAME_CONFIG = { FORM_RADIUS: 15, NODE_RADIUS: 8, NODE_SPAWN_INTERVAL_MS: 1500, MIN_NODE_SPAWN_INTERVAL_MS: 300, NODE_SPAWN_INTERVAL_DECREMENT_PER_SCORE: 10, SCORE_FOR_BARRIERS: 50, BARRIER_LINE_WIDTH: 4, BARRIER_COLLISION_TOLERANCE: 2, SCORE_PER_NODE: 10, CHAIN_RESET_THRESHOLD_MS: 1500, INITIAL_BARRIER_COUNT: 1, MAX_BARRIER_COUNT: 5 };
+        // --- MODIFIED GAME_CONFIG ---
+        const GAME_CONFIG = {
+            FORM_RADIUS: 12, // Was 15
+            NODE_RADIUS: 6,  // Was 8
+            NODE_SPAWN_INTERVAL_MS: 1500,
+            MIN_NODE_SPAWN_INTERVAL_MS: 300,
+            NODE_SPAWN_INTERVAL_DECREMENT_PER_SCORE: 10,
+            SCORE_FOR_BARRIERS: 50,
+            BARRIER_LINE_WIDTH: 3, // Was 4
+            BARRIER_COLLISION_TOLERANCE: 2,
+            SCORE_PER_NODE: 10,
+            CHAIN_RESET_THRESHOLD_MS: 1500,
+            INITIAL_BARRIER_COUNT: 1,
+            MAX_BARRIER_COUNT: 5,
+        };
         
-        // Player Forms
         const lightform = { x: 0, y: 0, radius: GAME_CONFIG.FORM_RADIUS, color: '#E0FBFC', auraColor: 'rgba(224, 251, 252, 0.3)' };
         const darkform = { x: 0, y: 0, radius: GAME_CONFIG.FORM_RADIUS, color: '#EE4266', auraColor: 'rgba(238, 66, 102, 0.3)' };
 
-        // Game Objects
         const nodes = []; let lastNodeSpawnTime = 0; let currentSpawnInterval = GAME_CONFIG.NODE_SPAWN_INTERVAL_MS;
         const barriers = []; let barriersEnabled = false; let lastNodeAbsorbedTime = 0; let chainResetTimer;
         
-        // UI Elements
         const hudScore = document.querySelector('.hud-score');
         const hudChain = document.querySelector('.hud-chain');
         const startOverlay = document.getElementById('startOverlay');
@@ -264,13 +248,11 @@
         const sessionHighScoreValSpan = document.getElementById('sessionHighScoreVal');
         const allTimeHighScoreValSpan = document.getElementById('allTimeHighScoreVal');
         
-        // Vector Math/Collision (Unchanged)
         const Vec2 = function(x, y) { this.x = x || 0; this.y = y || 0; };
         Vec2.prototype = { distSq: function(v) { let dx = v.x - this.x; let dy = v.y - this.y; return dx * dx + dy * dy; }, dist: function(v) { return Math.sqrt(this.distSq(v)); } };
         function checkCircleCollision(c1, c2) { const dx = c1.x - c2.x; const dy = c1.y - c2.y; const d = Math.sqrt(dx * dx + dy * dy); return d < (c1.radius + c2.radius); }
         function checkLineCircleCollision(line, circle) { const lS = new Vec2(line.x1, line.y1); const lE = new Vec2(line.x2, line.y2); const cC = new Vec2(circle.x, circle.y); const r = circle.radius + GAME_CONFIG.BARRIER_COLLISION_TOLERANCE; const lV = new Vec2(lE.x - lS.x, lE.y - lS.y); const pV = new Vec2(cC.x - lS.x, cC.y - lS.y); const lSq = lV.distSq(new Vec2(0, 0)); let t = 0; if (lSq !== 0) { t = (pV.x * lV.x + pV.y * lV.y) / lSq; } t = Math.max(0, Math.min(1, t)); const cP = new Vec2(lS.x + t * lV.x, lS.y + t * lV.y); const dSq = cP.distSq(cC); return dSq < r * r; }
 
-        // --- Initialization ---
         function init() {
             ctx.imageSmoothingEnabled = false;
             resizeCanvas();
@@ -283,21 +265,16 @@
             showStartScreen();
         }
 
-        function handleInitialStart(event) {
-            if (!isGameStarted && !isGameOver) { startGame(); }
-        }
-        
+        function handleInitialStart(event) { if (!isGameStarted && !isGameOver) { startGame(); } }
         function handleTouchStart(event) {
             event.preventDefault();
             if (isGameOver || !isGameStarted) return;
             const touch = event.touches[0];
-            const rect = canvas.getBoundingClientRect();
             touchStartX = touch.clientX;
             touchStartY = touch.clientY;
             formStartDragX = lightform.x;
             formStartDragY = lightform.y;
         }
-
         function handleTouchMove(event) {
             event.preventDefault();
             if (isGameOver || !isGameStarted) return;
@@ -327,17 +304,13 @@
             gameOverlay.classList.add('hidden');
             sessionHighMessage.classList.add('hidden');
             allTimeHighMessage.classList.add('hidden');
-            isGameOver = false;
-            isGameStarted = true;
+            isGameOver = false; isGameStarted = true;
             score = 0; chainMultiplier = 1; highestChainInGame = 0; nodesAbsorbedCount = 0;
             nodes.length = 0; barriers.length = 0; barriersEnabled = false;
             lastNodeSpawnTime = performance.now();
             currentSpawnInterval = GAME_CONFIG.NODE_SPAWN_INTERVAL_MS;
-            startTime = performance.now();
-            gameDuration = 0;
-            clearTimeout(chainResetTimer);
-            lightform.x = canvas.width / 2;
-            lightform.y = canvas.height / 2;
+            startTime = performance.now(); gameDuration = 0; clearTimeout(chainResetTimer);
+            lightform.x = canvas.width / 2; lightform.y = canvas.height / 2;
             updateDarkformPosition();
             gameLoop(performance.now());
         }
@@ -362,7 +335,7 @@
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             ctx.strokeStyle = 'var(--barrier-color)'; ctx.lineWidth = GAME_CONFIG.BARRIER_LINE_WIDTH;
             for (const b of barriers) { ctx.beginPath(); ctx.moveTo(b.x1, b.y1); ctx.lineTo(b.x2, b.y2); ctx.stroke(); }
-            for (const n of nodes) { ctx.beginPath(); ctx.arc(n.x, n.y, n.radius, 0, 2 * Math.PI); ctx.fillStyle = n.fillColor; ctx.fill(); ctx.strokeStyle = n.strokeColor; ctx.lineWidth = n.strokeWidth; ctx.stroke(); }
+            for (const n of nodes) { ctx.beginPath(); ctx.arc(n.x, n.y, n.radius, 0, 2 * Math.PI); ctx.fillStyle = n.fillColor; ctx.fill(); ctx.strokeStyle = n.strokeColor; ctx.lineWidth = 2; ctx.stroke(); }
             drawForm(darkform); drawForm(lightform);
             if (isGameStarted && !isGameOver) {
                 hudScore.textContent = `SCORE:${String(score).padStart(6, '0')}`;
@@ -374,22 +347,19 @@
             ctx.beginPath(); ctx.arc(form.x, form.y, form.radius, 0, 2*Math.PI); ctx.fillStyle = form.color; ctx.fill();
         }
 
-        // --- MODIFIED FUNCTION ---
+        // --- MODIFIED RESIZE FUNCTION ---
         function resizeCanvas() {
             const container = document.querySelector('.game-container');
             const screenWidth = container.clientWidth;
             const screenHeight = container.clientHeight;
-            const targetAspectRatio = 9 / 18; // Or 0.5
+            const targetAspectRatio = 9 / 16; // The standard mobile aspect ratio
 
             let newWidth, newHeight;
 
-            // Check if the screen is wider or taller than the target aspect ratio
             if (screenWidth / screenHeight > targetAspectRatio) {
-                // Screen is wider than target (e.g., landscape, wide phone): Constrain by height
                 newHeight = screenHeight;
                 newWidth = newHeight * targetAspectRatio;
             } else {
-                // Screen is taller than or equal to target (e.g., standard portrait): Constrain by width
                 newWidth = screenWidth;
                 newHeight = newWidth / targetAspectRatio;
             }
@@ -397,7 +367,6 @@
             canvas.width = Math.round(newWidth);
             canvas.height = Math.round(newHeight);
             
-            // Re-center forms and redraw immediately after a resize
             if (!isGameOver) {
                 updateDarkformPosition();
                 draw();
